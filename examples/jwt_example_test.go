@@ -282,6 +282,44 @@ func ExampleJWT_SignToken() {
 	// OUTPUT:
 }
 
+func ExampleJWT_CustomClaim() {
+	const src = `{
+  "iss": "https://github.com/lestrrat-go/jwx/jwt",
+  "aud": "Golang Users",
+  "x-custom-claim": {
+    "foo": 1,
+    "bar": true
+  }
+}`
+	type ExampleCustomClaim struct {
+		Foo int  `json:"foo"`
+		Bar bool `json:"bar"`
+	}
+
+	{
+		tok, err := jwt.Parse([]byte(src), jwt.WithTypedClaim("x-custom-claim", ExampleCustomClaim{}))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		v, ok := tok.Get("x-custom-claim")
+		if !ok {
+			fmt.Println("x-custom-claim not found")
+			return
+		}
+
+		switch v := v.(type) {
+		case ExampleCustomClaim:
+		default:
+			fmt.Printf("Unexpected type for x-custom-claim %T", v)
+			return
+		}
+	}
+
+	// OUTPUT:
+}
+
 func ExampleJWT_OpenIDToken() {
 	t := openid.New()
 	t.Set(jwt.SubjectKey, `https://github.com/lestrrat-go/jwx/jwt`)

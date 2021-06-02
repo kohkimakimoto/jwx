@@ -9,6 +9,7 @@ In this document we describe how to work with JWT using `github.com/lestrrat-go/
   * [Parse a JWT](#parse-a-jwt)
   * [Parse a JWT from file](#parse-a-jwt-from-file)
   * [Parse a JWT from a *http.Request](#parse-a-jwt-from-a-httprequest)
+  * [Parse a private claim into private struct](#parse-a-private-claim-into-a-custom-struct)
 * [Verification](#jwt-verification)
   * [Parse and Verify a JWT (with a single key)](#parse-and-verify-a-jwt-with-single-key)
   * [Parse and Verify a JWT (with a key set, matching "kid")](#parse-and-verify-a-jwt-with-a-key-set-matching-kid)
@@ -67,6 +68,51 @@ token, err := jwt.ParseRequest(req, jwt.WithHeaderKey("Authorization"), jwt.With
 // Looks under "Authorization" header and "access_token" form field
 token, err := jwt.ParseRequest(req, jwt.WithFormKey("access_token"))
 ```
+
+## Parse a Private Claim into a Custom Struct
+
+By default all JWT private claims are parsed into whatever `"encoding/json".Unmarshal` deems appropriate. For example, JSON objects are turned into `map[string]interface{}`, JSON arrays are turned into `[]interface{}`, etc.
+
+In case you want to parse these into a struct of your choice, you have two options.
+
+The first option is to register a mapping from a private claim field name to a struct:
+
+```go
+const src = `{
+  ...
+  "x-my-custom-claim": {
+    "foo": 1,
+    "bar": true
+  }
+}`
+
+type MyCustomClaim struct {
+  Foo int `json:"foo"`
+  Bar bool `json:"bar"`
+}
+
+jwt.RegisterCustomField(`x-my-custom-claim`, MyCustomClaim{})
+
+token, _ := jwt.Parse([]byte(src))
+v, _ := token.Get(`x-my-custom-claim`)
+mcc := v.(MyCustomClaim)
+fmt.Printf("foo is %d, bar is %t\n", mcc.Foo, mcc.Bar)
+```
+
+This has a global effect. All top-level JWT claims with the name "x-my-custom-claim" will then be parsed into an object of type `MyCustomClaim`. This is usually the preferred way, as it leaves no ambiguities.
+
+But sometimes you end up with an application that has separate JWTs with overlapping field names.
+In such cases, you may opt to use a per-call custom claim:
+
+```go
+token, _ := jwt.Parse([]byte(src), jwt.WithTypedClaim(`x-my-custom-claim`, MyCustomClaim{}))
+v, _ := token.Get(`x-my-custom-claim`)
+mcc := v.(MyCustomClaim)
+fmt.Printf("foo is %d, bar is %t\n", mcc.Foo, mcc.Bar)
+```
+
+This has local effect, and overrides any global settings. The downside is that now each `jwt.Token` instance must be carefully managed so that you don't mix up tokens that were parsed with this option and those that weren't.
+
 # JWT Verification
 
 ## Parse and Verify a JWT (with single key)
