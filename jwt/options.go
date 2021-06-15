@@ -26,14 +26,25 @@ func (*globalOption) globalOption() {}
 // ParseRequestOption describes an Option that can be passed to `ParseRequest()`.
 type ParseRequestOption interface {
 	ParseOption
-	httpParseOption()
+	parseRequestOption()
 }
 
-type httpParseOption struct {
+type parseRequestOption struct {
 	ParseOption
 }
 
-func (*httpParseOption) httpParseOption() {}
+func (*parseRequestOption) parseRequestOption() {}
+
+type ParseHeaderOption interface {
+	ParseOption
+	parseHeaderOption()
+}
+
+type parseHeaderOption struct {
+	ParseOption
+}
+
+func (*parseHeaderOption) parseHeaderOption() {}
 
 // ParseOption describes an Option that can be passed to `Parse()`.
 // ParseOption also implements ReadFileOption, therefore it may be
@@ -74,6 +85,7 @@ func (*validateOption) validateOption() {}
 
 type identAcceptableSkew struct{}
 type identAudience struct{}
+type identBase64BearerToken struct{}
 type identClaim struct{}
 type identClock struct{}
 type identDefault struct{}
@@ -212,7 +224,7 @@ func WithClaimValue(name string, v interface{}) ValidateOption {
 // While the type system allows this option to be passed to jwt.Parse() directly,
 // doing so will have no effect. Only use it for HTTP request parsing functions
 func WithHeaderKey(v string) ParseRequestOption {
-	return &httpParseOption{newParseOption(identHeaderKey{}, v)}
+	return &parseRequestOption{newParseOption(identHeaderKey{}, v)}
 }
 
 // WithFormKey is used to specify header keys to search for tokens.
@@ -220,7 +232,7 @@ func WithHeaderKey(v string) ParseRequestOption {
 // While the type system allows this option to be passed to jwt.Parse() directly,
 // doing so will have no effect. Only use it for HTTP request parsing functions
 func WithFormKey(v string) ParseRequestOption {
-	return &httpParseOption{newParseOption(identFormKey{}, v)}
+	return &parseRequestOption{newParseOption(identFormKey{}, v)}
 }
 
 // WithFlattenAudience specifies if the "aud" claim should be flattened
@@ -266,4 +278,8 @@ type typedClaimPair struct {
 // token type, it will need to implement the TokenWithDecodeCtx interface.
 func WithTypedClaim(name string, object interface{}) ParseOption {
 	return newParseOption(identTypedClaim{}, typedClaimPair{Name: name, Value: object})
+}
+
+func WithBase64BearerToken(v bool) ParseHeaderOption {
+	return &parseHeaderOption{ParseOption: newParseOption(identBase64BearerToken{}, v)}
 }

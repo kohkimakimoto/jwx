@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lestrrat-go/jwx/internal/base64"
 	"github.com/lestrrat-go/jwx/internal/json"
 	"github.com/lestrrat-go/jwx/internal/jwxtest"
 	"github.com/pkg/errors"
@@ -251,8 +251,7 @@ func TestJWTParseVerify(t *testing.T) {
 		if !assert.NoError(t, err, `json.Marshal should succeed`) {
 			return
 		}
-		dummyEncoded := make([]byte, base64.RawURLEncoding.EncodedLen(len(dummyMarshaled)))
-		base64.RawURLEncoding.Encode(dummyEncoded, dummyMarshaled)
+		dummyEncoded := base64.Encode(dummyMarshaled)
 
 		signedButNot := bytes.Join([][]byte{dummyEncoded, payload, signature}, []byte{'.'})
 
@@ -655,6 +654,17 @@ func TestParseRequest(t *testing.T) {
 			},
 			Parse: func(req *http.Request) (jwt.Token, error) {
 				return jwt.ParseRequest(req, jwt.WithVerify(jwa.ES256, pubkey))
+			},
+		},
+		{
+			Name: "Token in Authorization header, but is base64 encoded",
+			Request: func() *http.Request {
+				req := httptest.NewRequest(http.MethodGet, u, nil)
+				req.Header.Add("Authorization", "Bearer "+base64.EncodeToString(signed))
+				return req
+			},
+			Parse: func(req *http.Request) (jwt.Token, error) {
+				return jwt.ParseRequest(req, jwt.WithBase64BearerToken(true), jwt.WithVerify(jwa.ES256, pubkey))
 			},
 		},
 		{
